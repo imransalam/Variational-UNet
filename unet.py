@@ -60,7 +60,7 @@ class VariationalUnet(tf.keras.Model):
 
     def sample_from_mu_sigma(self, mu, sigma):
         std = tf.exp(0.5 * sigma)
-        eps = tf.random_normal(shape=tf.shape(std))
+        eps = tf.random.normal(shape=tf.shape(std))
         return mu + eps * std
         
     def call(self, x):
@@ -122,4 +122,4 @@ class VariationalUnet(tf.keras.Model):
         conv9_3 = self.conv9_3(conv9_2)
 
         conv10 = self.conv10(conv9_3)
-        return conv10
+        return conv10, [(mu4, sigma4), (mu3, sigma3), (mu2, sigma2), (mu1, sigma1)]
