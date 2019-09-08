@@ -1,7 +1,5 @@
 
 import tensorflow as tf
-# tf.enable_eager_execution()
-
 from unet import VariationalUnet
 from data import preprocessing
 
@@ -9,12 +7,12 @@ def loss(y, y_bar, mus_sigmas):
     ls = 0
     for mu, sigma in mus_sigmas:
         ls = ls + (- 0.5 * tf.reduce_sum(1 + sigma - tf.math.pow(mu, 2) - tf.exp(sigma)))
-    return tf.losses.mean_squared_error(y, y_bar) + ls
+    return tf.reduce_mean(tf.square(y - y_bar)) + ls
 
 def grad(model, inputs, targets):
     with tf.GradientTape() as tape:
         reconstruction, mus_sigmas = model(inputs)
-        loss_value = loss(mask, reconstruction, mus_sigmas)
+        loss_value = loss(targets, reconstruction, mus_sigmas)
     return loss_value, tape.gradient(loss_value, model.trainable_variables), reconstruction, mus_sigmas
 
 def train():
@@ -31,16 +29,18 @@ def train():
     global_step = tf.Variable(0)
 
     num_epochs = 50
-    batch_size = 1
+    batch_size = 4
 
     image_generator = image_datagen.flow_from_directory(
         'data/membrane/train/images/',
         class_mode=None,
+        batch_size = batch_size,
         seed=seed)
 
     mask_generator = mask_datagen.flow_from_directory(
         'data/membrane/train/masks/',
         class_mode=None,
+        batch_size = batch_size,
         seed=seed)
 
     train_generator = zip(image_generator, mask_generator)
@@ -49,15 +49,13 @@ def train():
         print("Epoch: ", epoch)
         for (img,mask) in train_generator:
             img, mask = preprocessing(img, mask)
-            # img = tf.expand_dims(img, axis=0)
-            # mask = tf.expand_dims(mask, axis=0)
             
-            loss_value, grads, reconstruction, mu, sigma = grad(model, img, mask)
+            loss_value, grads, reconstruction, mus_sigmas = grad(model, img, mask)
             optimizer.apply_gradients(zip(grads, model.trainable_variables), global_step)
             
-            if global_step.numpy() % 200 == 0:
+            if global_step.numpy() % 1 == 0:
                 print("Step: {},         Loss: {}".format(global_step.numpy(),
-                                              loss(x_inp, reconstruction, mus_sigmas).numpy()))
+                                              loss(mask, reconstruction, mus_sigmas).numpy()))
 
 
 if __name__ == "__main__":
